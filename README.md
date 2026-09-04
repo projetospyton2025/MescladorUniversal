@@ -21,17 +21,15 @@ Este projeto **não é um conversor genérico**. Conversão ou transcodificaçã
 
 | Tipo | Formatos | Resultado |
 | --- | --- | --- |
+| Áudio | AAC, FLAC, M4A, MP3, OGG, WAV, WMA | mesmo formato do primeiro arquivo |
+| Vídeo | AVI, MKV, MOV, MP4, WEBM | mesmo container do primeiro arquivo, em geral |
+| Imagens | BMP, JPEG, JPG, PNG, TIF, TIFF, WEBP | PDF |
+| Documento | PDF, DOC, DOCX, TXT | PDF, DOCX ou TXT |
+| Planilha | CSV, XLS, XLSX | CSV ou XLSX |
 | Dados | JSON | JSON |
-| Dados | CSV | CSV |
-| Documento | TXT | TXT |
-| Documento | PDF | PDF |
-| Documento | DOCX | DOCX |
-| Planilha | XLSX | XLSX |
-| Imagens | JPG, PNG, WEBP, BMP, TIFF | PDF |
-| Áudio | MP3, WAV, WMA, M4A, AAC, OGG, FLAC | mesmo formato do primeiro arquivo |
-| Vídeo | MP4, AVI, MKV, MOV, WEBM | mesmo container do primeiro arquivo, em geral |
+| Apresentações | PPT, PPTX | PPTX |
 
-Arquivos **DOC** e **XLS** (formatos antigos do Office) não são mesclados diretamente. Abra-os no Word/Excel ou no LibreOffice e salve como **DOCX** / **XLSX**.
+Arquivos **DOC**, **XLS** e **PPT** (formatos antigos do Office) não são mesclados diretamente. Abra-os no Word, Excel, PowerPoint ou no LibreOffice e salve como **DOCX** / **XLSX** / **PPTX**.
 
 Formatos mistos (por exemplo MP3 + MP4 + JSON) são rejeitados com a mensagem:
 
@@ -45,7 +43,7 @@ Imagens podem ser unidas em um PDF. PDFs são unidos página a página.
 - pip
 - FFmpeg e ffprobe, **somente** para áudio e vídeo
 
-JSON, TXT, CSV, PDF, imagens, XLSX e DOCX funcionam sem FFmpeg.
+JSON, TXT, CSV, PDF, imagens, XLSX, DOCX e PPTX funcionam sem FFmpeg.
 
 ## Instalação
 

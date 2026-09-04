@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect rx='8' width='32' height='32' fill='%230d1418'/%3E%3Cpath fill='%234fc9c4' d='M8 9h16v3H8zm0 6h16v3H8zm0 6h16v3H8z'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -56,11 +56,11 @@
                     </span>
                     <h2>Selecionar arquivos</h2>
                     <p>Arraste os arquivos aqui ou clique para escolher. Mínimo de 2 arquivos do mesmo tipo.</p>
-                    <ul class="formats" id="format-list"></ul>
+                    <div class="format-groups" id="format-list"></div>
                 </label>
                 <input class="file-input" id="file-input" type="file" multiple>
                 <p class="ffmpeg-note" id="ffmpeg-note" hidden>
-                    O FFmpeg não foi encontrado. JSON, PDF, imagens, TXT, CSV, XLSX e DOCX continuam disponíveis.
+                    O FFmpeg não foi encontrado. JSON, PDF, imagens, TXT, CSV, XLSX, DOCX e PPTX continuam disponíveis.
                     Áudio e vídeo exigem FFmpeg instalado. Veja o README.
                 </p>
             </div>
@@ -138,6 +138,6 @@
     <footer class="footer">
         {{ app_name }} — mesclar, juntar e concatenar arquivos, preservando o conteúdo original.
     </footer>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=2"></script>
 </body>
 </html>

@@ -75,11 +75,19 @@
     const renderFormats = (formats) => {
         formatList.innerHTML = "";
         (formats || []).forEach((group) => {
-            group.extensions.forEach((ext) => {
+            const block = document.createElement("section");
+            block.className = "format-group";
+            const title = document.createElement("strong");
+            title.textContent = group.label || group.category || "";
+            const list = document.createElement("ul");
+            list.className = "formats";
+            (group.extensions || []).forEach((ext) => {
                 const item = document.createElement("li");
                 item.textContent = ext;
-                formatList.appendChild(item);
+                list.appendChild(item);
             });
+            block.append(title, list);
+            formatList.appendChild(block);
         });
     };
 
@@ -359,7 +367,14 @@
                 .join(",");
             fileInput.setAttribute("accept", accept);
         } catch (_error) {
-            formatList.innerHTML = "<li>JSON</li><li>MP3</li><li>MP4</li><li>PDF</li><li>XLSX</li><li>DOCX</li><li>TXT</li>";
+            formatList.innerHTML = (
+                "<section class=\"format-group\"><strong>Dados</strong><ul class=\"formats\"><li>JSON</li></ul></section>"
+                + "<section class=\"format-group\"><strong>Áudio</strong><ul class=\"formats\"><li>MP3</li></ul></section>"
+                + "<section class=\"format-group\"><strong>Vídeo</strong><ul class=\"formats\"><li>MP4</li></ul></section>"
+                + "<section class=\"format-group\"><strong>Documento</strong><ul class=\"formats\"><li>PDF</li><li>DOCX</li><li>TXT</li></ul></section>"
+                + "<section class=\"format-group\"><strong>Planilha</strong><ul class=\"formats\"><li>XLSX</li></ul></section>"
+                + "<section class=\"format-group\"><strong>Apresentações</strong><ul class=\"formats\"><li>PPTX</li></ul></section>"
+            );
         }
     };
 

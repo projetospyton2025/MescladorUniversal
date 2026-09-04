@@ -6,7 +6,7 @@ from pathlib import Path
 
 from services.base import BaseMerger, ProgressCb
 from services.exceptions import MergeError
-from utils.ffmpeg import friendly_ffmpeg_error, probe, require_ffmpeg, run_command
+from utils.ffmpeg import concat_duration_ok, friendly_ffmpeg_error, probe, require_ffmpeg, run_command
 from utils.logging_setup import get_logger
 
 logger = get_logger("audio")
@@ -71,10 +71,11 @@ class AudioMerger(BaseMerger):
             if same_params:
                 progress(30, "Unindo áudios sem recodificar")
                 copied = self._concat_copy(ffmpeg, list_file, output)
-                if copied:
+                if copied and concat_duration_ok(paths, output):
                     progress(100, "Mesclagem concluída")
                     return output
                 logger.info("Concatenação direta falhou; padronizando áudio.")
+                output.unlink(missing_ok=True)
 
             progress(40, "Padronizando e concatenando áudio")
             self._concat_transcode(ffmpeg, list_file, output)

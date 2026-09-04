@@ -1,13 +1,16 @@
-"""Mesclagem de arquivos JSON com validação de estrutura."""
+"""Mesclagem de arquivos JSON com preservação do conteúdo original."""
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 from services.base import BaseMerger, ProgressCb
 from services.exceptions import MergeError
+
+_UPLOAD_PREFIX = re.compile(r"^\d{3}_")
 
 
 def _load_json(path: Path) -> Any:
@@ -39,6 +42,38 @@ def _type_name(value: Any) -> str:
     return type(value).__name__
 
 
+def _source_label(path: Path) -> str:
+    """Nome original do arquivo, sem o prefixo 000_ gravado no upload."""
+    name = path.name
+    if _UPLOAD_PREFIX.match(name):
+        return name[4:] or name
+    return name
+
+
+def _unique_labels(paths: list[Path]) -> list[str]:
+    labels: list[str] = []
+    used: dict[str, int] = {}
+    for path in paths:
+        base = _source_label(path)
+        count = used.get(base.lower(), 0)
+        used[base.lower()] = count + 1
+        if count == 0:
+            labels.append(base)
+            continue
+        stem = Path(base).stem
+        suffix = Path(base).suffix
+        labels.append(f"{stem}_{count}{suffix}")
+    return labels
+
+
+def _bundle_by_source(paths: list[Path], payloads: list[Any]) -> dict[str, Any]:
+    """Agrupa cada JSON intacto sob o nome do arquivo de origem."""
+    return {
+        label: payload
+        for label, payload in zip(_unique_labels(paths), payloads, strict=True)
+    }
+
+
 def _merge_objects(left: dict, right: dict, trail: str) -> dict:
     merged = dict(left)
     for key, right_value in right.items():
@@ -67,14 +102,8 @@ class JsonMerger(BaseMerger):
     category = "json"
 
     def validate_content(self, paths: list[Path]) -> None:
-        payloads = [_load_json(path) for path in paths]
-        kinds = {_type_name(item) for item in payloads}
-        if kinds != {"array"} and kinds != {"objeto"}:
-            raise MergeError(
-                "Os JSONs possuem estruturas incompatíveis. "
-                "Todos os arquivos precisam ser arrays ou todos precisam ser objetos. "
-                f"Foram encontrados: {', '.join(sorted(kinds))}."
-            )
+        for path in paths:
+            _load_json(path)
 
     def merge(self, paths: list[Path], output: Path, progress: ProgressCb) -> Path:
         progress(15, f"Lendo {paths[0].name}")
@@ -96,10 +125,8 @@ class JsonMerger(BaseMerger):
             for item in payloads:
                 result = _merge_objects(result, item, "")
         else:
-            raise MergeError(
-                "Os JSONs possuem estruturas incompatíveis. "
-                "Todos os arquivos precisam ser arrays ou todos precisam ser objetos."
-            )
+            progress(70, "Agrupando JSONs com estruturas diferentes")
+            result = _bundle_by_source(paths, payloads)
 
         progress(90, "Gravando JSON mesclado")
         output.write_text(

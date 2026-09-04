@@ -1,4 +1,10 @@
-"""Catálogo de formatos suportados e detecção de categoria."""
+"""Catálogo de formatos suportados e detecção de categoria.
+
+As extensões ficam agrupadas por família (áudio, vídeo, imagens, documentos,
+planilhas, dados e apresentações). A chave `category` identifica o processador;
+`category_label` é o nome exibido. CSV e XLSX compartilham o rótulo Planilha,
+mas permanecem em processadores distintos para não misturar os fluxos.
+"""
 
 from __future__ import annotations
 
@@ -27,7 +33,7 @@ FORMATS: tuple[FormatSpec, ...] = (
     FormatSpec(
         category="audio",
         category_label="Áudio",
-        extensions=frozenset({".mp3", ".wav", ".wma", ".m4a", ".aac", ".ogg", ".flac"}),
+        extensions=frozenset({".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav", ".wma"}),
         output_ext=".mp3",
         needs_ffmpeg=True,
         notes="A extensão de saída segue o primeiro arquivo, quando possível.",
@@ -35,7 +41,7 @@ FORMATS: tuple[FormatSpec, ...] = (
     FormatSpec(
         category="video",
         category_label="Vídeo",
-        extensions=frozenset({".mp4", ".avi", ".mkv", ".mov", ".webm"}),
+        extensions=frozenset({".avi", ".mkv", ".mov", ".mp4", ".webm"}),
         output_ext=".mp4",
         needs_ffmpeg=True,
         notes="Diferenças de codec/resolução podem exigir transcodificação interna.",
@@ -43,7 +49,7 @@ FORMATS: tuple[FormatSpec, ...] = (
     FormatSpec(
         category="image",
         category_label="Imagens",
-        extensions=frozenset({".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}),
+        extensions=frozenset({".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}),
         output_ext=".pdf",
         notes="Imagens são unidas em um único PDF.",
     ),
@@ -54,43 +60,59 @@ FORMATS: tuple[FormatSpec, ...] = (
         output_ext=".pdf",
     ),
     FormatSpec(
-        category="json",
-        category_label="Dados",
-        extensions=frozenset({".json"}),
-        output_ext=".json",
-    ),
-    FormatSpec(
-        category="csv",
-        category_label="Dados",
-        extensions=frozenset({".csv"}),
-        output_ext=".csv",
-    ),
-    FormatSpec(
         category="text",
         category_label="Documento",
         extensions=frozenset({".txt"}),
         output_ext=".txt",
     ),
     FormatSpec(
+        category="word",
+        category_label="Documento",
+        extensions=frozenset({".doc", ".docx"}),
+        output_ext=".docx",
+        notes="A mesclagem nativa é feita em DOCX. Arquivos DOC devem ser salvos como DOCX.",
+    ),
+    FormatSpec(
+        category="csv",
+        category_label="Planilha",
+        extensions=frozenset({".csv"}),
+        output_ext=".csv",
+    ),
+    FormatSpec(
         category="spreadsheet",
         category_label="Planilha",
-        extensions=frozenset({".xlsx", ".xls"}),
+        extensions=frozenset({".xls", ".xlsx"}),
         output_ext=".xlsx",
         notes="A mesclagem nativa é feita em XLSX. Arquivos XLS devem ser salvos como XLSX.",
     ),
     FormatSpec(
-        category="word",
-        category_label="Documento",
-        extensions=frozenset({".docx", ".doc"}),
-        output_ext=".docx",
-        notes="A mesclagem nativa é feita em DOCX. Arquivos DOC devem ser salvos como DOCX.",
+        category="json",
+        category_label="Dados",
+        extensions=frozenset({".json"}),
+        output_ext=".json",
+        notes=(
+            "Arrays são concatenados e objetos são mesclados. "
+            "Raízes diferentes ficam agrupadas pelo nome do arquivo, sem alterar o conteúdo."
+        ),
+    ),
+    FormatSpec(
+        category="presentation",
+        category_label="Apresentações",
+        extensions=frozenset({".ppt", ".pptx"}),
+        output_ext=".pptx",
+        notes="A mesclagem nativa é feita em PPTX. Arquivos PPT devem ser salvos como PPTX.",
     ),
 )
 
 _EXT_TO_SPEC: dict[str, FormatSpec] = {}
 for _spec in FORMATS:
     for _ext in _spec.extensions:
-        _EXT_TO_SPEC[_ext] = _spec
+        key = _ext.lower()
+        if not key.startswith("."):
+            key = f".{key}"
+        if key in _EXT_TO_SPEC:
+            raise RuntimeError(f"Extensão duplicada no catálogo: {key}")
+        _EXT_TO_SPEC[key] = _spec
 
 ALLOWED_EXTENSIONS = frozenset(_EXT_TO_SPEC)
 
@@ -103,20 +125,36 @@ def spec_for(path: str | Path) -> FormatSpec | None:
     return _EXT_TO_SPEC.get(extension_of(path))
 
 
+def extensions_for(category: str) -> frozenset[str]:
+    spec = next((item for item in FORMATS if item.category == category), None)
+    return spec.extensions if spec else frozenset()
+
+
 def public_catalog() -> list[dict]:
-    """Lista formatos para a interface, sem expor detalhes internos."""
+    """Lista formatos para a interface, agrupados pela família visível."""
     groups: list[dict] = []
+    index: dict[str, dict] = {}
     for spec in FORMATS:
-        groups.append(
-            {
+        key = spec.category_label
+        if key not in index:
+            item = {
                 "category": spec.category,
                 "label": spec.category_label,
-                "extensions": sorted(ext.lstrip(".").upper() for ext in spec.extensions),
+                "extensions": set(),
                 "output": spec.output_ext.lstrip(".").upper(),
                 "needs_ffmpeg": spec.needs_ffmpeg,
                 "notes": spec.notes,
             }
-        )
+            index[key] = item
+            groups.append(item)
+        else:
+            item = index[key]
+            item["needs_ffmpeg"] = bool(item["needs_ffmpeg"] or spec.needs_ffmpeg)
+            if spec.notes and spec.notes not in item["notes"]:
+                item["notes"] = f"{item['notes']} {spec.notes}".strip()
+        item["extensions"].update(ext.lstrip(".").upper() for ext in spec.extensions)
+    for item in groups:
+        item["extensions"] = sorted(item["extensions"])
     return groups
 
 
@@ -170,6 +208,11 @@ def detect_from_names(names: list[str]) -> dict:
         raise MergeError(
             "Arquivos DOC (Word 97-2003) não podem ser mesclados diretamente. "
             "Abra o documento no Word ou no LibreOffice e salve como DOCX."
+        )
+    if spec.category == "presentation" and any(extension_of(name) == ".ppt" for name in names):
+        raise MergeError(
+            "Arquivos PPT (PowerPoint 97-2003) não podem ser mesclados diretamente. "
+            "Abra a apresentação no PowerPoint ou no LibreOffice e salve como PPTX."
         )
 
     output_ext = extension_of(names[0])

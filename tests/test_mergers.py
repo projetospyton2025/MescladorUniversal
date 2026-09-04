@@ -24,9 +24,11 @@ from services.exceptions import MergeError
 from services.image_merger import ImageMerger
 from services.json_merger import JsonMerger
 from services.pdf_merger import PdfMerger
-from services.registry import detect_from_names
+from services.ppt_merger import PptMerger
+from services.registry import ALLOWED_EXTENSIONS, FORMATS, detect_from_names, extension_of, public_catalog
 from services.text_merger import TextMerger
 from utils.ffmpeg import ffmpeg_available
+from utils.validation import validate_extension
 
 
 def _noop_progress(_percent: int, _message: str) -> None:
@@ -65,6 +67,69 @@ class DetectTests(unittest.TestCase):
         with self.assertRaises(MergeError):
             detect_from_names(["a.doc", "b.doc"])
 
+    def test_case_insensitive_extensions(self) -> None:
+        info = detect_from_names(["a.PDF", "b.Pdf"])
+        self.assertEqual(info["category"], "pdf")
+        self.assertEqual(info["format_label"], "PDF")
+        validate_extension("relatorio.PDF")
+        validate_extension("Foto.JpG")
+        self.assertEqual(extension_of("musica.Mp3"), ".mp3")
+
+    def test_pptx_detection(self) -> None:
+        info = detect_from_names(["a.pptx", "b.PPTX"])
+        self.assertEqual(info["category"], "presentation")
+        self.assertEqual(info["category_label"], "Apresentações")
+        self.assertEqual(info["output_ext"], ".pptx")
+
+    def test_ppt_legacy_rejected(self) -> None:
+        with self.assertRaises(MergeError) as ctx:
+            detect_from_names(["a.ppt", "b.ppt"])
+        self.assertIn("PPT", ctx.exception.user_message)
+
+    def test_csv_stays_apart_from_xlsx(self) -> None:
+        with self.assertRaises(MergeError) as ctx:
+            detect_from_names(["a.csv", "b.xlsx"])
+        self.assertIn("incompatíveis", ctx.exception.user_message)
+
+    def test_catalog_has_no_duplicate_extensions(self) -> None:
+        seen: set[str] = set()
+        for spec in FORMATS:
+            for ext in spec.extensions:
+                self.assertNotIn(ext, seen)
+                seen.add(ext)
+        self.assertEqual(seen, set(ALLOWED_EXTENSIONS))
+
+    def test_catalog_covers_expected_families(self) -> None:
+        by_label: dict[str, set[str]] = {}
+        for spec in FORMATS:
+            by_label.setdefault(spec.category_label, set()).update(spec.extensions)
+        self.assertEqual(
+            by_label["Áudio"],
+            {".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav", ".wma"},
+        )
+        self.assertEqual(by_label["Vídeo"], {".avi", ".mkv", ".mov", ".mp4", ".webm"})
+        self.assertEqual(
+            by_label["Imagens"],
+            {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"},
+        )
+        self.assertGreaterEqual(by_label["Documento"], {".pdf", ".doc", ".docx", ".txt"})
+        self.assertGreaterEqual(by_label["Planilha"], {".csv", ".xls", ".xlsx"})
+        self.assertEqual(by_label["Dados"], {".json"})
+        self.assertEqual(by_label["Apresentações"], {".ppt", ".pptx"})
+        catalog = public_catalog()
+        catalog_exts = {
+            f".{ext.lower()}"
+            for group in catalog
+            for ext in group["extensions"]
+        }
+        self.assertEqual(catalog_exts, set(ALLOWED_EXTENSIONS))
+        self.assertEqual(
+            [group["label"] for group in catalog],
+            ["Áudio", "Vídeo", "Imagens", "Documento", "Planilha", "Dados", "Apresentações"],
+        )
+        apresentacoes = next(group for group in catalog if group["label"] == "Apresentações")
+        self.assertEqual(apresentacoes["extensions"], ["PPT", "PPTX"])
+
 
 class JsonMergeTests(unittest.TestCase):
     def test_concat_arrays(self) -> None:
@@ -88,13 +153,32 @@ class JsonMergeTests(unittest.TestCase):
             self.assertEqual(data["cidade"], "SP")
             self.assertEqual(data["itens"], [1, 2])
 
-    def test_incompatible_structures(self) -> None:
+    def test_mixed_roots_are_bundled_by_filename(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            (root / "a.json").write_text("[1]", encoding="utf-8")
-            (root / "b.json").write_text('{"a": 1}', encoding="utf-8")
+            (root / "000_abi_registry.json").write_text("[1, 2]", encoding="utf-8")
+            (root / "001_package.json").write_text('{"name": "tunnel-agent"}', encoding="utf-8")
+            JsonMerger().validate_content(
+                [root / "000_abi_registry.json", root / "001_package.json"]
+            )
+            output = root / "out.json"
+            JsonMerger().merge(
+                [root / "000_abi_registry.json", root / "001_package.json"],
+                output,
+                _noop_progress,
+            )
+            data = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(data["abi_registry.json"], [1, 2])
+            self.assertEqual(data["package.json"], {"name": "tunnel-agent"})
+
+    def test_object_key_conflict_still_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "a.json").write_text('{"nome": "Ana"}', encoding="utf-8")
+            (root / "b.json").write_text('{"nome": "Bia"}', encoding="utf-8")
+            output = root / "out.json"
             with self.assertRaises(MergeError):
-                JsonMerger().validate_content([root / "a.json", root / "b.json"])
+                JsonMerger().merge([root / "a.json", root / "b.json"], output, _noop_progress)
 
 
 class TextCsvPdfTests(unittest.TestCase):
@@ -180,6 +264,28 @@ class TextCsvPdfTests(unittest.TestCase):
             texts = [paragraph.text for paragraph in merged.paragraphs if paragraph.text]
             self.assertTrue(any("Primeiro" in item for item in texts))
             self.assertTrue(any("Segundo" in item for item in texts))
+
+    def test_pptx_concat(self) -> None:
+        from pptx import Presentation
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name, title in (("a.pptx", "Primeiro"), ("b.pptx", "Segundo")):
+                presentation = Presentation()
+                slide = presentation.slides.add_slide(presentation.slide_layouts[0])
+                slide.shapes.title.text = title
+                presentation.save(root / name)
+            output = root / "out.pptx"
+            PptMerger().merge([root / "a.pptx", root / "b.pptx"], output, _noop_progress)
+            merged = Presentation(output)
+            titles = [
+                slide.shapes.title.text
+                for slide in merged.slides
+                if slide.shapes.title is not None
+            ]
+            self.assertGreaterEqual(len(merged.slides), 2)
+            self.assertTrue(any("Primeiro" in item for item in titles))
+            self.assertTrue(any("Segundo" in item for item in titles))
 
 
 @unittest.skipUnless(ffmpeg_available(), "FFmpeg não está instalado")

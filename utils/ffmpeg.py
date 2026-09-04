@@ -96,6 +96,10 @@ def probe(path: Path) -> dict:
             ffprobe,
             "-v",
             "error",
+            "-analyzeduration",
+            "10M",
+            "-probesize",
+            "10M",
             "-print_format",
             "json",
             "-show_format",
@@ -117,6 +121,25 @@ def probe(path: Path) -> dict:
             f"Não foi possível analisar as informações técnicas de {path.name}.",
             detail=str(exc),
         ) from exc
+
+
+def media_duration(path: Path) -> float:
+    raw = (probe(path).get("format") or {}).get("duration")
+    try:
+        return float(raw or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def concat_duration_ok(sources: list[Path], output: Path, min_ratio: float = 0.75) -> bool:
+    """Aceita concat copy só se a duração da saída cobrir a soma das entradas."""
+    if not output.exists() or output.stat().st_size <= 0:
+        return False
+    out_dur = media_duration(output)
+    in_dur = sum(media_duration(item) for item in sources)
+    if in_dur <= 0:
+        return out_dur > 0
+    return out_dur >= in_dur * min_ratio
 
 
 def friendly_ffmpeg_error(stderr: str) -> str:

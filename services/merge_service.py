@@ -17,6 +17,7 @@ from services.exceptions import MergeError
 from services.image_merger import ImageMerger
 from services.json_merger import JsonMerger
 from services.pdf_merger import PdfMerger
+from services.ppt_merger import PptMerger
 from services.registry import detect_from_names
 from services.text_merger import TextMerger
 from services.video_merger import VideoMerger
@@ -37,6 +38,7 @@ MERGERS = {
     "text": TextMerger(),
     "spreadsheet": ExcelMerger(),
     "word": DocMerger(),
+    "presentation": PptMerger(),
 }
 
 

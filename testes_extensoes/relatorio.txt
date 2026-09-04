@@ -1,0 +1,28 @@
+Teste de mesclagem por extensão
+Pasta: M:\Meu Drive\ProjetosPython\Combiners\mesclador\testes_extensoes
+TXT e JSON: não retestados (já conferidos manualmente)
+
+OK    AAC    saidas\mesclado_aac.aac     9.0 KB, duração 1.07s
+OK    FLAC   saidas\mesclado_flac.flac   23.8 KB, duração 1.00s (após recodificar; concat copy descartado)
+OK    M4A    saidas\mesclado_m4a.m4a     9.7 KB, duração 1.02s
+OK    MP3    saidas\mesclado_mp3.mp3     5.4 KB, duração 1.05s
+OK    OGG    saidas\mesclado_ogg.ogg     8.6 KB, duração 1.00s
+OK    WAV    saidas\mesclado_wav.wav     86.2 KB, duração 1.00s
+OK    WMA    saidas\mesclado_wma.wma     9.9 KB, duração 1.02s
+OK    AVI    saidas\mesclado_avi.avi     134.2 KB, duração 4.08s
+OK    MKV    saidas\mesclado_mkv.mkv     12.0 KB, duração 1.07s
+OK    MOV    saidas\mesclado_mov.mov     12.8 KB, duração 1.02s
+OK    MP4    saidas\mesclado_mp4.mp4     12.8 KB, duração 1.02s
+OK    WEBM   saidas\mesclado_webm.webm   7.1 KB, duração 1.01s
+OK    BMP    saidas\mesclado_bmp.pdf     PDF com 2 páginas
+OK    JPEG   saidas\mesclado_jpeg.pdf    PDF com 2 páginas
+OK    JPG    saidas\mesclado_jpg.pdf     PDF com 2 páginas
+OK    PNG    saidas\mesclado_png.pdf     PDF com 2 páginas
+OK    TIF    saidas\mesclado_tif.pdf     PDF com 2 páginas
+OK    TIFF   saidas\mesclado_tiff.pdf    PDF com 2 páginas
+OK    WEBP   saidas\mesclado_webp.pdf    PDF com 2 páginas
+OK    PDF    saidas\mesclado_pdf.pdf     PDF com 2 páginas
+OK    CSV    saidas\mesclado_csv.csv     cabeçalho + Ana + Bia
+ESP.  XLS    rejeitado de propósito: salve como XLSX
+OK    XLSX   saidas\mesclado_xlsx.xlsx   cabeçalho + Ana + Bia
+ESP.  DOC    rejeitado de propósito: salve como DOCX

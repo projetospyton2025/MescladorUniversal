@@ -6,7 +6,7 @@ from pathlib import Path
 
 from services.base import BaseMerger, ProgressCb
 from services.exceptions import MergeError
-from utils.ffmpeg import friendly_ffmpeg_error, probe, require_ffmpeg, run_command
+from utils.ffmpeg import concat_duration_ok, friendly_ffmpeg_error, probe, require_ffmpeg, run_command
 from utils.logging_setup import get_logger
 
 logger = get_logger("video")
@@ -75,10 +75,11 @@ class VideoMerger(BaseMerger):
         try:
             if compatible:
                 progress(25, "Unindo vídeos sem recodificar")
-                if self._concat_copy(ffmpeg, list_file, output):
+                if self._concat_copy(ffmpeg, list_file, output) and concat_duration_ok(paths, output):
                     progress(100, "Mesclagem concluída")
                     return output
                 logger.info("Concatenação direta de vídeo falhou; padronizando internamente.")
+                output.unlink(missing_ok=True)
 
             first = videos[0] or {}
             width = _even(int(first.get("width") or 0), 1280)
@@ -131,6 +132,7 @@ class VideoMerger(BaseMerger):
                 mid = output.parent / f"{output.stem}_part_{index}.mp4"
                 cmd = [
                     ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+                    "-analyzeduration", "10M", "-probesize", "10M",
                     "-i", str(path),
                 ]
                 if need_audio and audios[index] is None:
@@ -138,6 +140,7 @@ class VideoMerger(BaseMerger):
                     # duration is matched via -shortest after mapping video length with apad
                     cmd = [
                         ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+                        "-analyzeduration", "10M", "-probesize", "10M",
                         "-i", str(path),
                         "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
                         "-filter_complex",

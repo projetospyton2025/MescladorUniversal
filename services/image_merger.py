@@ -10,9 +10,9 @@ from pypdf import PdfReader, PdfWriter
 
 from services.base import BaseMerger, ProgressCb
 from services.exceptions import MergeError
-from services.registry import extension_of
+from services.registry import extension_of, extensions_for
 
-_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+_IMAGE_EXTS = extensions_for("image")
 
 
 def _open_image(path: Path) -> Image.Image:
@@ -75,6 +75,8 @@ class ImageMerger(BaseMerger):
                 if reader.is_encrypted:
                     raise MergeError(f"O PDF {path.name} está protegido por senha.")
                 continue
+            if ext not in _IMAGE_EXTS:
+                raise MergeError(f"O arquivo {path.name} não é uma imagem suportada.")
             _open_image(path).close()
 
     def merge(self, paths: list[Path], output: Path, progress: ProgressCb) -> Path:
