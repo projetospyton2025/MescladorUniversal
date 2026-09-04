@@ -1,0 +1,110 @@
+"""Mesclagem de arquivos JSON com validação de estrutura."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from services.base import BaseMerger, ProgressCb
+from services.exceptions import MergeError
+
+
+def _load_json(path: Path) -> Any:
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise MergeError(
+            f"O arquivo {path.name} não está em UTF-8. Salve o JSON com encoding UTF-8 e tente novamente.",
+            detail=str(exc),
+        ) from exc
+    if not text.strip():
+        raise MergeError(f"O arquivo {path.name} está vazio.")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise MergeError(
+            f"O arquivo {path.name} não contém um JSON válido (linha {exc.lineno}, coluna {exc.colno}).",
+            detail=str(exc),
+        ) from exc
+
+
+def _type_name(value: Any) -> str:
+    if isinstance(value, dict):
+        return "objeto"
+    if isinstance(value, list):
+        return "array"
+    if value is None:
+        return "nulo"
+    return type(value).__name__
+
+
+def _merge_objects(left: dict, right: dict, trail: str) -> dict:
+    merged = dict(left)
+    for key, right_value in right.items():
+        location = f"{trail}.{key}" if trail else key
+        if key not in merged:
+            merged[key] = right_value
+            continue
+        left_value = merged[key]
+        if isinstance(left_value, dict) and isinstance(right_value, dict):
+            merged[key] = _merge_objects(left_value, right_value, location)
+        elif isinstance(left_value, list) and isinstance(right_value, list):
+            merged[key] = left_value + right_value
+        elif left_value == right_value:
+            continue
+        else:
+            raise MergeError(
+                "Os JSONs possuem estruturas incompatíveis. "
+                f"A chave \"{location}\" aparece com valores diferentes "
+                f"({_type_name(left_value)} e {_type_name(right_value)}) "
+                "e não pode ser combinada automaticamente."
+            )
+    return merged
+
+
+class JsonMerger(BaseMerger):
+    category = "json"
+
+    def validate_content(self, paths: list[Path]) -> None:
+        payloads = [_load_json(path) for path in paths]
+        kinds = {_type_name(item) for item in payloads}
+        if kinds != {"array"} and kinds != {"objeto"}:
+            raise MergeError(
+                "Os JSONs possuem estruturas incompatíveis. "
+                "Todos os arquivos precisam ser arrays ou todos precisam ser objetos. "
+                f"Foram encontrados: {', '.join(sorted(kinds))}."
+            )
+
+    def merge(self, paths: list[Path], output: Path, progress: ProgressCb) -> Path:
+        progress(15, f"Lendo {paths[0].name}")
+        payloads = []
+        for index, path in enumerate(paths):
+            percent = 15 + int(50 * (index / len(paths)))
+            progress(percent, f"Lendo {path.name}")
+            payloads.append(_load_json(path))
+
+        kinds = {_type_name(item) for item in payloads}
+        if kinds == {"array"}:
+            progress(70, "Concatenando arrays JSON")
+            result: Any = []
+            for item in payloads:
+                result.extend(item)
+        elif kinds == {"objeto"}:
+            progress(70, "Mesclando objetos JSON")
+            result = {}
+            for item in payloads:
+                result = _merge_objects(result, item, "")
+        else:
+            raise MergeError(
+                "Os JSONs possuem estruturas incompatíveis. "
+                "Todos os arquivos precisam ser arrays ou todos precisam ser objetos."
+            )
+
+        progress(90, "Gravando JSON mesclado")
+        output.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        progress(100, "Mesclagem concluída")
+        return output

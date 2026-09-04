@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ app_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect rx='8' width='32' height='32' fill='%230d1418'/%3E%3Cpath fill='%234fc9c4' d='M8 9h16v3H8zm0 6h16v3H8zm0 6h16v3H8z'/%3E%3C/svg%3E">
+</head>
+<body>
+    <div class="app-bg" aria-hidden="true"></div>
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true">
+                <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                    <rect x="6" y="8" width="24" height="6" rx="2" fill="currentColor" opacity=".95"/>
+                    <rect x="6" y="16" width="24" height="6" rx="2" fill="currentColor" opacity=".7"/>
+                    <rect x="6" y="24" width="24" height="6" rx="2" fill="currentColor" opacity=".45"/>
+                </svg>
+            </span>
+            <div>
+                <strong>{{ app_name }}</strong>
+                <small>Juntar arquivos sem converter o essencial</small>
+            </div>
+        </div>
+        <p class="topbar-note">localhost:{{ port }}</p>
+    </header>
+
+    <main class="wrap">
+        <section class="hero">
+            <p class="eyebrow">Mesclagem de arquivos</p>
+            <h1>Junte dois ou mais arquivos em um só</h1>
+            <p class="lede">
+                Selecione arquivos <strong>compatíveis</strong>, organize a ordem e clique em mesclar.
+                O sistema identifica o formato e usa o processador adequado para JSON, áudio, vídeo, PDF, imagens, planilhas e documentos.
+            </p>
+            <ol class="flow">
+                <li>Selecionar</li>
+                <li>Ordenar</li>
+                <li>Mesclar</li>
+                <li class="is-out">Baixar</li>
+            </ol>
+        </section>
+
+        <section class="card">
+            <div id="panel-select" class="panel">
+                <label class="dropzone" id="dropzone" for="file-input">
+                    <span class="dropzone-icon" aria-hidden="true">
+                        <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                            <path d="M28 12v24M16 24l12-12 12 12" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 40h32" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    <h2>Selecionar arquivos</h2>
+                    <p>Arraste os arquivos aqui ou clique para escolher. Mínimo de 2 arquivos do mesmo tipo.</p>
+                    <ul class="formats" id="format-list"></ul>
+                </label>
+                <input class="file-input" id="file-input" type="file" multiple>
+                <p class="ffmpeg-note" id="ffmpeg-note" hidden>
+                    O FFmpeg não foi encontrado. JSON, PDF, imagens, TXT, CSV, XLSX e DOCX continuam disponíveis.
+                    Áudio e vídeo exigem FFmpeg instalado. Veja o README.
+                </p>
+            </div>
+
+            <div id="panel-files" class="panel" hidden>
+                <div class="file-toolbar">
+                    <h2>Fila de mesclagem</h2>
+                    <button class="btn btn-ghost" type="button" id="btn-clear">Limpar lista</button>
+                </div>
+                <div class="detect-panel" id="detect-panel"></div>
+                <ul class="file-list" id="file-list"></ul>
+                <div class="field">
+                    <label for="output-name">Nome do arquivo de saída (opcional)</label>
+                    <input id="output-name" type="text" maxlength="120" placeholder="arquivo_mesclado">
+                </div>
+                <p class="hint">A ordem da lista é a ordem do resultado. Arraste, use as setas ou remova itens.</p>
+                <div class="action-row">
+                    <button class="btn btn-secondary" type="button" id="btn-add">Adicionar arquivos</button>
+                    <button class="btn btn-primary" type="button" id="btn-merge">Mesclar arquivos</button>
+                </div>
+            </div>
+
+            <div id="panel-progress" class="panel" hidden>
+                <div class="converting-head">
+                    <span class="pulse" aria-hidden="true"></span>
+                    <div>
+                        <h2>Mesclando arquivos...</h2>
+                    </div>
+                </div>
+                <p class="converting-file" id="progress-file">Preparando</p>
+                <p class="progress-percent" id="progress-percent">0%</p>
+                <div class="progress-wrap">
+                    <div class="progress" id="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-meta">
+                        <span>Processamento em andamento</span>
+                        <span id="progress-status">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="panel-success" class="panel" hidden>
+                <div class="success-banner">
+                    <div class="success-icon" aria-hidden="true">✓</div>
+                    <div>
+                        <h2>Arquivos mesclados com sucesso!</h2>
+                        <p id="result-meta"></p>
+                    </div>
+                </div>
+                <div class="action-row" style="margin-top: 20px;">
+                    <a class="btn btn-primary" id="btn-download">Baixar arquivo</a>
+                    <button class="btn btn-whatsapp" type="button" id="btn-whatsapp">Compartilhar no WhatsApp</button>
+                </div>
+                <p class="share-note">
+                    O WhatsApp não recebe anexos automaticamente. Baixe o arquivo e anexe na conversa,
+                    ou use o compartilhamento do navegador quando disponível.
+                </p>
+                <button class="btn btn-ghost btn-block" type="button" id="btn-new" style="margin-top: 8px;">Nova mesclagem</button>
+            </div>
+
+            <div id="panel-error" class="panel" hidden>
+                <div class="error-banner">
+                    <div class="error-icon" aria-hidden="true">!</div>
+                    <div>
+                        <h2>Não foi possível mesclar</h2>
+                        <p id="error-text"></p>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-block" type="button" id="btn-back">Voltar à lista</button>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        {{ app_name }} — mesclar, juntar e concatenar arquivos, preservando o conteúdo original.
+    </footer>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
